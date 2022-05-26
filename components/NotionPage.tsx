@@ -16,6 +16,7 @@ import { Loading } from "./Loading";
 // dynamic imports for optional components
 // -----------------------------------------------------------------------------
 
+// @ts-ignore
 const Code = dynamic(() =>
   import("react-notion-x/build/third-party/code").then(async (m) => {
     // additional prism syntaxes
