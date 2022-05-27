@@ -5,15 +5,26 @@ import { Loading } from "../components/Loading";
 import { requestExternalImage } from "../lib/face-auth";
 import Head from "next/head";
 import * as faceapi from "face-api.js";
-import { Button, Input, Modal, Spacer, Text } from "@nextui-org/react";
+import { Button, Input, Modal, Spacer, Text, theme } from "@nextui-org/react";
 import { toast } from "react-toastify";
 
-const PASSCODE = "piggy9464";
+const PASSCODES = ["piggy9464", "llly0429"];
 const CAPTURE_INTERVAL = 1000;
-const OPTIONS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+// const OPTIONS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+const OPTIONS = new faceapi.TinyFaceDetectorOptions({
+  inputSize: 512,
+  scoreThreshold: 0.5,
+});
 const VIDEO_DIM = { HEIGHT: 300, WIDTH: 300 };
-const faces = [
+const BOX_COLORS = ["red", "blue", "yellow", "orange", "pink"];
+const FACES = [
   "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2FScreenshot%202022-05-27%20at%203.34.24%20PM.png?alt=media&token=06634f10-2841-4118-b2f7-70cdb3947a31",
+  "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2Fprofile3.jpeg?alt=media&token=850e9fe7-7c4a-4c19-956a-19f33047375d",
+
+  "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2Fphoto1653673775.jpeg?alt=media&token=7a551e77-e3ff-4616-b45d-570efe17b437",
+  "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2Fphoto1653673775%20(2).jpeg?alt=media&token=b1ccb5e4-1335-4322-aacf-48a8127080a8",
+  "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2Fphoto1653673775%20(1).jpeg?alt=media&token=f8c9c522-e943-4c37-8ec4-d91ea35d4b3d",
+  "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2FScreenshot%202022-05-28%20at%201.50.23%20AM.png?alt=media&token=03f7c760-8516-47a2-8a8c-c56e966618d6",
 ];
 
 const userAtom = atom(
@@ -35,20 +46,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [mounted, setMounted] = React.useState(false);
   const [ready, setReady] = React.useState(false);
   const [capture, setCapture] = React.useState("");
-  const [faceMatcher, setFaceMatcher] = React.useState<faceapi.FaceMatcher>();
-  const [label, setLabel] = React.useState("");
+  const [faceMatchers, setFaceMatchers] = React.useState<faceapi.FaceMatcher[]>(
+    []
+  );
+  const [labels, setLabels] = React.useState<string[]>([]);
   const [camOpened, setCamOpened] = React.useState(false);
   const [captureInterval, setCaptureInterval] = React.useState<NodeJS.Timer>();
   const [modalVisible, setModalVisible] = React.useState<boolean>(false);
   const [passcode, setPasscode] = React.useState("");
+  const [faceDetected, setFaceDetected] = React.useState(false);
   const [user, setUser] = useAtom(userAtomWithPersistence);
-  const refImageRef = React.useRef<HTMLImageElement>(null);
-  const refImageOverlay = React.useRef<HTMLCanvasElement>(null);
   const refVideoOverlay = React.useRef<HTMLCanvasElement>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   const useFace = async () => {
+    // show loading indicator
+    const id = toast.loading("Initialising camera...");
+
     try {
       // setup camera
       navigator.mediaDevices
@@ -62,32 +77,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         })
         .catch(console.error);
 
-      const img = await requestExternalImage(faces[0]);
-      const fullFaceDescription = await faceapi
-        .detectSingleFace(img, OPTIONS)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      const _faceMatcher = new faceapi.FaceMatcher(fullFaceDescription);
-      setFaceMatcher(_faceMatcher);
-
-      faceapi.matchDimensions(refImageRef.current, refImageOverlay.current);
-      // resize detection and landmarks in case displayed image is smaller than
-      // original size
-      const resizedResult = faceapi.resizeResults(
-        fullFaceDescription,
-        refImageRef.current
+      const imgs = await Promise.all(
+        FACES.map(async (face) => await requestExternalImage(face))
       );
-      // draw boxes with the corresponding label as text
-      const _label = _faceMatcher.findBestMatch(resizedResult.descriptor);
-      const options = { label: _label.toString() };
-      const drawBox = new faceapi.draw.DrawBox(
-        resizedResult.detection.box,
-        options
+      const fullFaceDescriptions = await Promise.all(
+        imgs.map(
+          async (img) =>
+            await faceapi
+              .detectSingleFace(img, OPTIONS)
+              .withFaceLandmarks()
+              .withFaceDescriptor()
+        )
       );
-      // drawBox.draw(refImageOverlay.current);
-      setLabel(_label.label);
+      const _faceMatchers = fullFaceDescriptions.map(
+        (fullFaceDescription) => new faceapi.FaceMatcher(fullFaceDescription)
+      );
+      setFaceMatchers(_faceMatchers);
+      const resizedResults = fullFaceDescriptions.map(
+        (fullFaceDescription, idx) =>
+          faceapi.resizeResults(fullFaceDescription, imgs[idx])
+      );
+      resizedResults.forEach(({ descriptor }, idx) => {
+        const label = _faceMatchers[idx].findBestMatch(descriptor).label;
+        setLabels((old) => [...old, label]);
+      });
+
+      // show success indicator
+      toast.update(id, {
+        render: "Camera initialised!",
+        type: "success",
+        isLoading: false,
+        autoClose: 3000,
+      });
     } catch (err) {
+      // show failed indicator
+      toast.update(id, {
+        render: "Failed to initialise camera",
+        type: "error",
+        isLoading: false,
+        autoClose: 3000,
+      });
       console.error(err);
     }
   };
@@ -95,16 +124,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   React.useEffect(() => {
     setMounted(true);
 
-    Promise.all([
+    // skip if already has user
+    if (user !== "") {
+      setReady(true);
+      return;
+    }
+
+    toast.promise(
       // load models
-      faceapi.nets.ssdMobilenetv1.load("/models"),
-      faceapi.nets.faceLandmark68Net.load("/models"),
-      faceapi.nets.faceRecognitionNet.load("/models"),
-    ])
-      .then(([stream, , ,]) => {
-        setReady(true);
-      })
-      .catch(console.error);
+      Promise.all([
+        faceapi.nets.tinyFaceDetector.load("/models"),
+        faceapi.nets.faceLandmark68Net.load("/models"),
+        faceapi.nets.faceRecognitionNet.load("/models"),
+      ])
+        .then(() => setReady(true))
+        .catch(console.error),
+      {
+        error: "Error loading ML models",
+        pending: "Loading ML models...",
+        success: "Successfully loaded ML models",
+      },
+      {
+        autoClose: 3000,
+      }
+    );
 
     // run an interval to keep cature image
     const interval = setInterval(() => {
@@ -123,45 +166,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setCaptureInterval(interval);
 
     return () => clearInterval(interval);
-  }, [mounted, ready]);
+  }, []);
 
   React.useEffect(() => {
-    if (!ready || !faceMatcher) return;
+    if (!ready || faceMatchers.length === 0 || labels.length === 0) return;
 
     const verifyFace = async () => {
       const img = document.createElement("img");
       img.src = capture;
-      const detection = await faceapi
+      const result = await faceapi
         .detectSingleFace(img, OPTIONS)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
       // handle no face
-      if (!detection) {
-        console.error("no face detected");
+      if (!result) {
+        setFaceDetected(false);
         return;
       }
 
+      setFaceDetected(true);
+
       faceapi.matchDimensions(videoRef.current, refVideoOverlay.current);
-      const resizedResult = faceapi.resizeResults(detection, videoRef.current);
-
-      const _label = faceMatcher.findBestMatch(resizedResult.descriptor);
-      const option = { label: _label.toString() };
-      const drawBox = new faceapi.draw.DrawBox(
-        resizedResult.detection.box,
-        option
+      const { descriptor, detection } = faceapi.resizeResults(
+        result,
+        videoRef.current
       );
-      drawBox.draw(refVideoOverlay.current);
 
-      if (_label.label === label) {
-        toast.success("Face matched! ✅");
-        clearInterval(captureInterval);
-        setUser("Marcus Lee");
+      for (let i = 0; i < faceMatchers.length; i++) {
+        const label = faceMatchers[i].findBestMatch(descriptor);
+        const drawBox = new faceapi.draw.DrawBox(detection.box, {
+          label: label.toString(),
+          boxColor: BOX_COLORS[Math.floor(Math.random() * BOX_COLORS.length)],
+        });
+        drawBox.draw(refVideoOverlay.current);
+
+        if (labels.includes(label.label)) {
+          toast.success("Face matched!");
+          clearInterval(captureInterval);
+          setUser("Marcus Lee");
+        }
       }
     };
 
     verifyFace().then().catch(console.error);
-  }, [capture, ready]);
+  }, [capture]);
 
   if (!mounted || !ready) return <Loading />;
 
@@ -182,24 +231,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           height: "100vh",
         }}
       >
-        <div style={{ position: "relative", display: "none" }}>
-          <img
-            ref={refImageRef}
-            src={faces[0]}
-            style={{ height: VIDEO_DIM.HEIGHT, width: VIDEO_DIM.WIDTH }}
-          />
-          <canvas
-            ref={refImageOverlay}
-            style={{ position: "absolute", top: 0, left: 0 }}
-          />
-        </div>
         <div
           style={{
             position: "relative",
             display: !camOpened ? "none" : "block",
           }}
         >
-          <video ref={videoRef} autoPlay />
+          <video
+            ref={videoRef}
+            autoPlay
+            style={{
+              borderRadius: theme.radii.xl.value,
+              marginBottom: theme.space[4].value,
+            }}
+          />
+          <Text
+            css={{ textAlign: "center", marginBottom: theme.space[7].value }}
+          >
+            {!faceDetected ? "No face detected" : "Face detected!"}
+          </Text>
           <canvas
             ref={refVideoOverlay}
             style={{ position: "absolute", top: 0, left: 0 }}
@@ -248,7 +298,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         </Button>
       </div>
 
-      <Modal open={modalVisible} onClose={() => setModalVisible(false)}>
+      <Modal
+        open={modalVisible}
+        onClose={() => setModalVisible(false)}
+        css={{ margin: "$0 $8" }}
+      >
         <Modal.Header>
           <Text h3>Enter Passcode</Text>
         </Modal.Header>
@@ -266,10 +320,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             color="default"
             style={{ width: "100%" }}
             onClick={() => {
-              if (passcode.trim() === PASSCODE) {
-                toast.success("Passcode valid ✅");
+              if (PASSCODES.includes(passcode.trim())) {
+                toast.success("Passcode valid");
                 setUser("Marcus Lee");
-              } else toast.error("Passcode incorrect ❌");
+              } else toast.error("Passcode incorrect");
             }}
           >
             Submit
