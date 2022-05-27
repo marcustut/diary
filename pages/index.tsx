@@ -10,6 +10,7 @@ import {
   previewImagesEnabled,
 } from "../lib/config";
 import { Links } from "../components/Links";
+import { AuthProvider } from "../providers/AuthProvider";
 
 export const getStaticProps = async () => {
   const pageId = rootNotionPageId;
@@ -25,7 +26,7 @@ export const getStaticProps = async () => {
 
 export default function Page({ recordMap }: { recordMap: ExtendedRecordMap }) {
   return (
-    <>
+    <AuthProvider>
       <NotionPage
         recordMap={recordMap}
         rootDomain={rootDomain}
@@ -33,6 +34,6 @@ export default function Page({ recordMap }: { recordMap: ExtendedRecordMap }) {
         previewImagesEnabled={previewImagesEnabled}
       />
       <Links />
-    </>
+    </AuthProvider>
   );
 }

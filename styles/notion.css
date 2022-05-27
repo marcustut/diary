@@ -75,10 +75,6 @@
   padding-bottom: 8px;
 }
 
-/* .notion-page-title .notion-page-icon-inline {
-  display: none;
-} */
-
 .notion-list-item-title .notion-page-title-text {
   border-bottom: 0;
   color: #ffffff;
@@ -120,4 +116,12 @@
 
 .notion-text {
   margin: 0px 0px 16px;
+}
+
+.notion-asset-wrapper-video .notion-asset-caption {
+  text-align: center;
+}
+
+.notion-asset-caption {
+  color: #707070
 }
