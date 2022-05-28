@@ -65,6 +65,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const id = toast.loading("Initialising camera...");
 
     try {
+      toast.promise(
+        // load models
+        Promise.all([
+          faceapi.nets.tinyFaceDetector.load("/models"),
+          faceapi.nets.faceLandmark68Net.load("/models"),
+          faceapi.nets.faceRecognitionNet.load("/models"),
+        ])
+          .then(() => setReady(true))
+          .catch(console.error),
+        {
+          error: "Error loading ML models",
+          pending: "Loading ML models...",
+          success: "Successfully loaded ML models",
+        },
+        {
+          autoClose: 3000,
+        }
+      );
+
       // setup camera
       navigator.mediaDevices
         .getUserMedia({
@@ -130,28 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    toast.promise(
-      // load models
-      Promise.all([
-        faceapi.nets.tinyFaceDetector.load("/models"),
-        faceapi.nets.faceLandmark68Net.load("/models"),
-        faceapi.nets.faceRecognitionNet.load("/models"),
-      ])
-        .then(() => setReady(true))
-        .catch(console.error),
-      {
-        error: "Error loading ML models",
-        pending: "Loading ML models...",
-        success: "Successfully loaded ML models",
-      },
-      {
-        autoClose: 3000,
-      }
-    );
-
     // run an interval to keep cature image
     const interval = setInterval(() => {
-      if (!canvasRef.current) return;
+      if (!canvasRef.current || !videoRef.current) return;
       canvasRef.current
         .getContext("2d")
         .drawImage(
