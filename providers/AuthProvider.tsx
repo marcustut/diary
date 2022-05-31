@@ -10,11 +10,11 @@ import { toast } from "react-toastify";
 
 const PASSCODES = ["piggy9464", "llly0429"];
 const CAPTURE_INTERVAL = 1000;
-// const OPTIONS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-const OPTIONS = new faceapi.TinyFaceDetectorOptions({
-  inputSize: 512,
-  scoreThreshold: 0.5,
-});
+const OPTIONS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+// const OPTIONS = new faceapi.TinyFaceDetectorOptions({
+//   inputSize: 512,
+//   scoreThreshold: 0.5,
+// });
 const VIDEO_DIM = { HEIGHT: 300, WIDTH: 300 };
 const BOX_COLORS = ["red", "blue", "yellow", "orange", "pink"];
 const FACES = [
@@ -70,7 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast.promise(
         // load models
         Promise.all([
-          faceapi.nets.tinyFaceDetector.load("/models"),
+          // faceapi.nets.tinyFaceDetector.load("/models"),
+          faceapi.nets.ssdMobilenetv1.load("/models"),
           faceapi.nets.faceLandmark68Net.load("/models"),
           faceapi.nets.faceRecognitionNet.load("/models"),
         ]).catch(console.error),
@@ -226,7 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         <meta name="twitter:title" content={TITLE} />
         <meta name="twitter:creator" content="@geminimarcus" />
 
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div

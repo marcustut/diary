@@ -142,7 +142,7 @@ export const NotionPage = ({
         <meta property="og:title" content={title} />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:creator" content="@geminimarcus" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <NotionRenderer
