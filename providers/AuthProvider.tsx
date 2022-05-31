@@ -26,6 +26,9 @@ const FACES = [
   "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2Fphoto1653673775%20(1).jpeg?alt=media&token=f8c9c522-e943-4c37-8ec4-d91ea35d4b3d",
   "https://firebasestorage.googleapis.com/v0/b/llly-1b79c.appspot.com/o/faces%2FScreenshot%202022-05-28%20at%201.50.23%20AM.png?alt=media&token=03f7c760-8516-47a2-8a8c-c56e966618d6",
 ];
+const SOCIAL_DESCRIPTION = "Marcus Lee";
+const SOCIAL_IMAGE = "https://avatars.githubusercontent.com/u/59773847?v=4";
+const TITLE = "Sign In";
 
 const userAtom = atom(
   typeof window === "undefined" ? "" : sessionStorage.getItem("user") ?? ""
@@ -44,7 +47,6 @@ type AuthProviderProps = {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [mounted, setMounted] = React.useState(false);
-  const [ready, setReady] = React.useState(false);
   const [capture, setCapture] = React.useState("");
   const [faceMatchers, setFaceMatchers] = React.useState<faceapi.FaceMatcher[]>(
     []
@@ -71,9 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           faceapi.nets.tinyFaceDetector.load("/models"),
           faceapi.nets.faceLandmark68Net.load("/models"),
           faceapi.nets.faceRecognitionNet.load("/models"),
-        ])
-          .then(() => setReady(true))
-          .catch(console.error),
+        ]).catch(console.error),
         {
           error: "Error loading ML models",
           pending: "Loading ML models...",
@@ -143,12 +143,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   React.useEffect(() => {
     setMounted(true);
 
-    // skip if already has user
-    if (user !== "") {
-      setReady(true);
-      return;
-    }
-
     // run an interval to keep cature image
     const interval = setInterval(() => {
       if (!canvasRef.current || !videoRef.current) return;
@@ -169,7 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   React.useEffect(() => {
-    if (!ready || faceMatchers.length === 0 || labels.length === 0) return;
+    if (faceMatchers.length === 0 || labels.length === 0) return;
 
     const verifyFace = async () => {
       const img = document.createElement("img");
@@ -212,14 +206,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     verifyFace().then().catch(console.error);
   }, [capture]);
 
-  if (!mounted || !ready) return <Loading />;
+  if (!mounted) return <Loading />;
 
   return user.length > 0 ? (
     <>{children}</>
   ) : (
     <>
       <Head>
-        <title>Sign In</title>
+        <meta name="description" content={SOCIAL_DESCRIPTION} />
+        <meta property="og:description" content={SOCIAL_DESCRIPTION} />
+        <meta name="twitter:description" content={SOCIAL_DESCRIPTION} />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content={SOCIAL_IMAGE} />
+        <meta property="og:image" content={SOCIAL_IMAGE} />
+
+        <title>{TITLE}</title>
+        <meta property="og:title" content={TITLE} />
+        <meta name="twitter:title" content={TITLE} />
+        <meta name="twitter:creator" content="@geminimarcus" />
+
+        <link rel="icon" type="image/png" href="/favicon.png" />
       </Head>
 
       <div
